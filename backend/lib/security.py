@@ -1,7 +1,5 @@
 """Admin auth (bcrypt + JWT in an httpOnly cookie) and a small in-memory rate limiter."""
 
-from __future__ import annotations
-
 import os
 import time
 from collections import defaultdict, deque
@@ -117,6 +115,22 @@ class RateLimiter:
             bucket.append(now)
 
 
-login_limiter = RateLimiter(limit=8, window_seconds=15 * 60, label="login")
-submit_limiter = RateLimiter(limit=60, window_seconds=10 * 60, label="registration")  # campus WiFi shares one IP: flood protection only
-status_limiter = RateLimiter(limit=120, window_seconds=15 * 60, label="status lookup")
+_login_limiter = RateLimiter(limit=8, window_seconds=15 * 60, label="login")
+_submit_limiter = RateLimiter(limit=60, window_seconds=10 * 60, label="registration")  # campus WiFi shares one IP: flood protection only
+_status_limiter = RateLimiter(limit=120, window_seconds=15 * 60, label="status lookup")
+
+
+# FastAPI's dependency resolver inspects the callable's parameter annotations directly.
+# `from __future__ import annotations` stringifies them, which breaks the introspection of
+# RateLimiter.__call__, so we wrap each limiter in a plain function whose signature
+# FastAPI can read (Request is imported at runtime above).
+def login_limiter(request: Request) -> None:
+    _login_limiter(request)
+
+
+def submit_limiter(request: Request) -> None:
+    _submit_limiter(request)
+
+
+def status_limiter(request: Request) -> None:
+    _status_limiter(request)

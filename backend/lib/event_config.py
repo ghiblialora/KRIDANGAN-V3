@@ -24,7 +24,7 @@ REGISTRATION_FEES: dict[str, int | None] = {
 }
 
 PAYMENT: dict[str, str] = {
-    "upiId": "kridangan@upi",
+    "upiId": "kavyamhatre20viiid@okaxis",
     "qrCode": "/assets/payment-qr.png",
 }
 

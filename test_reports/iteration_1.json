@@ -1,0 +1,44 @@
+{
+  "summary": "First-finish latency test for KRIDANGAN. Public GET endpoints and frontend render correctly. CRITICAL BLOCKER: every POST endpoint and any handler that depends on the RateLimiter (submit_limiter / status_limiter / login_limiter) or declares a `request: Request` param fails with HTTP 422 — FastAPI is treating `request` as a required query parameter. This breaks admin login, registration submit, and status lookup end-to-end.",
+  "tested_scope": ["backend", "frontend", "integration"],
+  "passed": [
+    "GET /api/ -> 200 {message:'KRIDANGAN API', status:'ok'}",
+    "GET /api/registration/config -> 200 with 3 games (freefire/chess/efootball), fee=null, fee_display='₹XXX', payment.upi_id='kridangan@upi', qr='/assets/payment-qr.png', organizer_email present",
+    "Frontend homepage loads at preview URL with KRIDANGAN hero, GAMES / PRIZE POOL / ABOUT / STATUS / CONTACT nav sections rendering, no console errors, no page errors"
+  ],
+  "failed": [
+    {
+      "area": "backend/registration",
+      "issue": "POST /api/registration/submit returns 422 {loc:['query','request'], msg:'Field required'} for ALL cases (valid multipart, invalid mobile, duplicate UTR, non-image). Cannot create any registration.",
+      "evidence": "curl -F full_name=... -F screenshot=@file $BASE/api/registration/submit -> HTTP 422 detail=[{'type':'missing','loc':['query','request'],'msg':'Field required'}]",
+      "priority": "HIGH"
+    },
+    {
+      "area": "backend/registration",
+      "issue": "POST /api/registration/status returns 422 with same 'query.request missing' error even though the handler signature has no Request param — the error is injected by Depends(status_limiter).",
+      "evidence": "curl -d '{\"registration_id\":\"KRD-XXXXXX\"}' /api/registration/status -> HTTP 422 detail includes {'loc':['query','request'],'msg':'Field required'}",
+      "priority": "HIGH"
+    },
+    {
+      "area": "backend/admin",
+      "issue": "POST /api/admin/login returns 422 with the same 'query.request missing' error for both correct and wrong credentials. Admin panel is entirely unreachable.",
+      "evidence": "curl -d '{\"username\":\"admin@kridangan.local\",\"password\":\"Kridangan@2026\"}' /api/admin/login -> HTTP 422 detail=[{'loc':['query','request'],'msg':'Field required'}]. Bad creds also -> 422 (not 401).",
+      "priority": "HIGH"
+    },
+    {
+      "area": "backend/admin",
+      "issue": "GET /api/admin/me returns 401 for both cookie and no-cookie cases because login can never issue a cookie (dependent on login endpoint being broken).",
+      "evidence": "GET /api/admin/me with fresh cookie jar -> 401 'Admin authentication required'",
+      "priority": "HIGH"
+    }
+  ],
+  "action_items": [
+    "Root cause: `from __future__ import annotations` (in /app/backend/lib/security.py and likely /app/backend/routers/*.py) stringifies annotations. FastAPI's dependency resolver on the RateLimiter class instance (Depends(submit_limiter/status_limiter/login_limiter)) then fails to recognise `request: Request` in RateLimiter.__call__, treating it as a required query field named 'request'. Same problem for handlers where `request: Request` is a direct parameter.",
+    "Suggested fixes (choose one): (a) Remove `from __future__ import annotations` from lib/security.py and any router that defines handlers with `request: Request` or Depends(<limiter>); (b) Instead of using a callable class instance as a dependency, wrap it in a plain async function (e.g., `async def submit_rate_limit(request: Request): submit_limiter(request)`) — plain functions resolve types via get_type_hints correctly even with future annotations; (c) In RateLimiter.__call__ signature, keep the runtime import of Request and avoid the future-annotations issue by defining the limiters in a module without `from __future__ import annotations`.",
+    "After fix, re-run: /api/registration/submit (valid + duplicate + bad-mime), /api/registration/status, /api/admin/login (good/bad), /api/admin/me, /api/admin/stats, /api/admin/registrations, approve/reject/note/export.csv, /api/admin/logout.",
+    "Unrelated: /assets/payment-qr.png 404 is expected per problem statement (not a bug)."
+  ],
+  "success_rate": {"backend": "17% (2/12 endpoints reachable — only the two GETs without limiters/request work)", "frontend": "100% for homepage render (deeper flows blocked by backend)"},
+  "retest_needed": true,
+  "full_testing_deferred": true
+}

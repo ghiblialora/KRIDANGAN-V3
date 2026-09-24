@@ -1,7 +1,5 @@
 """Admin endpoints — every route (except login) requires the httpOnly admin session cookie."""
 
-from __future__ import annotations
-
 import csv
 import io
 import re

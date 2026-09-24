@@ -1,7 +1,5 @@
 """Public registration endpoints: config, submit (multipart), status lookup."""
 
-from __future__ import annotations
-
 import secrets
 from datetime import datetime, timezone
 
