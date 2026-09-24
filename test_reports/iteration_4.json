@@ -1,0 +1,51 @@
+{
+  "summary": "Executed backend+frontend auth-rotation verification on preview URL. Core credential rotation/session invalidation flows passed; brute-force threshold and CORS credential posture checks failed.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/admin/login",
+        "issue": "Brute-force lockout did not trigger after 5 invalid attempts (6th attempt still returns 401; expected 429 per playbook)",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "/api/admin/login (CORS preflight)",
+        "issue": "CORS responds with Access-Control-Allow-Origin: * and no Access-Control-Allow-Credentials; cookie-credentialed cross-origin admin auth posture is not explicit-origin based",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_auth_rotation.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/root/.emergent/automation_output/20260924_193426/console_20260924_193426.log"
+  ],
+  "action_items": [
+    "Align brute-force policy to lock after 5 failed admin logins if that is the required policy (current code in lib/security.py uses limit=8).",
+    "Set explicit CORS origin(s) in backend/.env and ensure allow_credentials=true for cookie-based admin auth when cross-origin support is required.",
+    "Update stale regression fixture in /app/backend/tests/test_registration_admin_api.py that still uses old admin credentials (admin@kridangan.local)."
+  ],
+  "critical_code_review_comments": [
+    "backend/lib/security.py: _login_limiter is configured as limit=8, which conflicts with playbook expectation of 5 failed attempts lockout.",
+    "backend/.env + backend/server.py: CORS_ORIGINS is '*' so server intentionally disables credentialed CORS (allow_credentials=False) and returns wildcard ACAO.",
+    "backend/tests/test_registration_admin_api.py contains hardcoded old admin credentials, causing future regression drift after credential rotation."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin_auth_rotation.py",
+    "/app/test_reports/iteration_4.json"
+  ],
+  "success_rate": {
+    "backend": "71% (5/7 tests passed)",
+    "frontend": "100% for requested auth/dashboard/logout UI flows"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Use /app/backend/tests/test_admin_auth_rotation.py as auth regression baseline. Re-run pytest after lockout threshold and CORS origin settings are adjusted. UI login/dashboard/logout flow already validated on preview with username nxtgen.",
+  "rca of the issue": "1) Lockout mismatch root cause: security limiter config sets login limit=8 in code, so 6th bad attempt remains 401. 2) CORS posture root cause: backend .env uses CORS_ORIGINS='*', and server.py turns off allow_credentials under wildcard, therefore no Access-Control-Allow-Credentials header is emitted."
+}

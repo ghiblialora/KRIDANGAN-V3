@@ -14,6 +14,8 @@ from lib.db import db
 
 COOKIE_NAME = "kridangan_admin"
 TOKEN_TTL = timedelta(hours=12)
+LOGIN_MAX_FAILURES = 5
+LOGIN_WINDOW_SECONDS = 15 * 60
 
 _pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -76,19 +78,60 @@ async def current_admin(request: Request) -> str:
 AdminUser = Depends(current_admin)
 
 
+def _login_identifier(request: Request, username: str) -> str:
+    ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
+    return f"{ip}:{username.strip().casefold()}"
+
+
+async def check_login_allowed(request: Request, username: str) -> None:
+    identifier = _login_identifier(request, username)
+    attempt = await db.login_attempts.find_one({"identifier": identifier}, {"_id": 0, "blocked_until": 1})
+    if attempt and float(attempt.get("blocked_until", 0)) > time.time():
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many login attempts. Please try again later.")
+
+
+async def record_failed_login(request: Request, username: str) -> None:
+    identifier = _login_identifier(request, username)
+    now = time.time()
+    attempt = await db.login_attempts.find_one({"identifier": identifier}, {"_id": 0})
+    if not attempt or now - float(attempt.get("window_started", 0)) > LOGIN_WINDOW_SECONDS:
+        failures = 1
+        window_started = now
+    else:
+        failures = int(attempt.get("failures", 0)) + 1
+        window_started = float(attempt.get("window_started", now))
+    blocked_until = now + LOGIN_WINDOW_SECONDS if failures >= LOGIN_MAX_FAILURES else 0
+    await db.login_attempts.update_one(
+        {"identifier": identifier},
+        {"$set": {"identifier": identifier, "failures": failures, "window_started": window_started, "blocked_until": blocked_until}},
+        upsert=True,
+    )
+
+
+async def clear_failed_logins(request: Request, username: str) -> None:
+    await db.login_attempts.delete_one({"identifier": _login_identifier(request, username)})
+
+
 async def seed_admin_from_env() -> None:
-    """Create/refresh the admin account from ADMIN_USERNAME / ADMIN_PASSWORD (.env)."""
+    """Create/refresh the configured admin and deactivate superseded admin accounts."""
     username = os.environ.get("ADMIN_USERNAME", "").strip()
     password = os.environ.get("ADMIN_PASSWORD", "")
     if not username or not password:
         return
+    now = datetime.now(timezone.utc)
+    await db.admins.update_many(
+        {"username": {"$ne": username}, "active": True},
+        {"$set": {"active": False, "updated_at": now}},
+    )
     existing = await db.admins.find_one({"username": username})
     if existing and verify_password(password, existing.get("password_hash", "")):
+        if not existing.get("active", False):
+            await db.admins.update_one({"username": username}, {"$set": {"active": True, "updated_at": now}})
         return
     await db.admins.update_one(
         {"username": username},
         {"$set": {"username": username, "password_hash": hash_password(password), "active": True,
-                  "updated_at": datetime.now(timezone.utc)}},
+                  "updated_at": now}},
         upsert=True,
     )
 
@@ -115,7 +158,6 @@ class RateLimiter:
             bucket.append(now)
 
 
-_login_limiter = RateLimiter(limit=8, window_seconds=15 * 60, label="login")
 _submit_limiter = RateLimiter(limit=60, window_seconds=10 * 60, label="registration")  # campus WiFi shares one IP: flood protection only
 _status_limiter = RateLimiter(limit=120, window_seconds=15 * 60, label="status lookup")
 
@@ -124,10 +166,6 @@ _status_limiter = RateLimiter(limit=120, window_seconds=15 * 60, label="status l
 # `from __future__ import annotations` stringifies them, which breaks the introspection of
 # RateLimiter.__call__, so we wrap each limiter in a plain function whose signature
 # FastAPI can read (Request is imported at runtime above).
-def login_limiter(request: Request) -> None:
-    _login_limiter(request)
-
-
 def submit_limiter(request: Request) -> None:
     _submit_limiter(request)
 

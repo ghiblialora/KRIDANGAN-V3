@@ -52,11 +52,11 @@ def _submit_registration(data: dict, screenshot_path: Path = SCREENSHOT_PATH) ->
 def admin_session() -> requests.Session:
     # Admin auth and protected endpoint access.
     session = requests.Session()
-    login_payload = {"username": "admin@kridangan.local", "password": "Kridangan@2026"}
+    login_payload = {"username": "nxtgen", "password": "Millionmack@2611"}
     login = session.post(f"{BASE_URL}/api/admin/login", json=login_payload, timeout=20)
     assert login.status_code == 200, f"Admin login failed: {login.status_code} {login.text}"
     body = login.json()
-    assert body["username"] == "admin@kridangan.local"
+    assert body["username"] == "nxtgen"
     me = session.get(f"{BASE_URL}/api/admin/me", timeout=20)
     assert me.status_code == 200, f"Admin session invalid: {me.status_code} {me.text}"
     return session
@@ -327,7 +327,7 @@ def test_admin_approve_and_reject_controls(admin_session: requests.Session) -> N
     approved = approve_resp.json()
     assert approved["registration_status"] == "VERIFIED"
     assert approved["payment_status"] == "VERIFIED"
-    assert approved["verified_by"] == "admin@kridangan.local"
+    assert approved["verified_by"] == "nxtgen"
 
 
 def test_csv_export_includes_required_columns_and_values(admin_session: requests.Session, created_registrations: dict) -> None:

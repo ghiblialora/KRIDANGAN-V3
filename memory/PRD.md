@@ -62,7 +62,21 @@ Previous account's preview crashed on `src/main.tsx` before credits ran out.
 - Cursor enhancement activates only for fine pointers, remains non-blocking, hides on pointer exit, and is disabled for reduced-motion users; touch/mobile behavior remains native.
 - Frontend production build passed. Testing agent iteration 3 verified the reported stale-content bug and cursor behavior at **100%** across desktop/mobile, including no overflow, no blocked interactions, reduced-motion behavior, and existing navigation. Intermittent preview-infrastructure `/cdn-cgi/rum` aborted-request noise did not affect any app flow.
 
+## Admin Credential & Session Rotation (2026-09-24, iteration 4)
+- Rotated the configured admin username/password through `backend/.env`; current test credentials are maintained in `/app/memory/test_credentials.md`.
+- Rotated the 64-character JWT signing secret, immediately invalidating every previously issued admin cookie.
+- Admin startup seeding now deactivates superseded admin accounts and keeps only the configured account active; passwords remain bcrypt hashes in MongoDB.
+- Added MongoDB-backed failed-login tracking keyed by IP + username: five failed attempts trigger a 15-minute lockout, while a successful login clears its failure record.
+- Replaced wildcard CORS with explicit credentialed origins for the public preview and its trusted canonical ingress origin. Azure production must supply its own explicit frontend origin through `CORS_ORIGINS`.
+- Added `/app/auth_testing.md` and auth regression coverage. Testing agent verified new credentials, old-credential rejection, pre-rotation JWT rejection, Mongo state, safe invalid-login errors, dashboard access, and logout. Post-fix suite: **7/7 passed**; test-only lockout records and synthetic token were removed.
+
+## Azure Hosting Direction
+- Recommended production target: **Azure App Service / Web App for Containers**, after replacing local screenshot storage with Azure Blob Storage and using an external MongoDB service (MongoDB Atlas or Azure Cosmos DB for MongoDB).
+- Fastest lift-and-shift alternative: Azure VM/VPS with Docker or Nginx + process supervision, but the organizer owns OS patching, TLS, backups, monitoring, scaling, and incident recovery.
+- App Service is preferred for this event system because managed HTTPS, restarts, health checks, scaling, and environment configuration reduce operational risk. The existing local-disk upload path is the primary deployment blocker.
+
 ## Backlog (prioritized)
+- **P0**: Before Azure App Service deployment, migrate payment screenshots to Azure Blob Storage and configure production MongoDB + explicit production CORS/domain environment values.
 - **P1**: Wire up an email provider inside `backend/lib/notifications._deliver` (currently logs only).
 - **P1**: Persistent object storage for screenshots (currently local disk).
 - **P2**: Rejection reason dropdown (Invalid UTR / Amount mismatch / Screenshot unclear / Not found / Duplicate / Other) — backend accepts free-form reason today.

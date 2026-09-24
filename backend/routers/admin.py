@@ -13,9 +13,11 @@ from lib.db import db
 from lib.event_config import GAMES, format_fee, game_title, metadata_for
 from lib.security import (
     AdminUser,
+    check_login_allowed,
+    clear_failed_logins,
     clear_session_cookie,
     issue_token,
-    login_limiter,
+    record_failed_login,
     set_session_cookie,
     verify_password,
 )
@@ -66,11 +68,14 @@ async def _get_or_404(registration_id: str) -> dict:
 # ---------------- auth ----------------
 
 
-@router.post("/login", response_model=AdminMe, dependencies=[Depends(login_limiter)])
+@router.post("/login", response_model=AdminMe)
 async def login(body: AdminLogin, request: Request, response: Response) -> AdminMe:
+    await check_login_allowed(request, body.username)
     admin = await db.admins.find_one({"username": body.username.strip(), "active": True})
     if not admin or not verify_password(body.password, admin.get("password_hash", "")):
+        await record_failed_login(request, body.username)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid username or password")
+    await clear_failed_logins(request, body.username)
     set_session_cookie(response, request, issue_token(admin["username"]))
     return AdminMe(username=admin["username"])
 
