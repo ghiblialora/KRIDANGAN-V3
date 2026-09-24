@@ -209,3 +209,52 @@
 .animate-kridangan-drift { animation: kridangan-drift 13s ease-in-out infinite alternate; }
 
 ::selection { background: rgba(249, 115, 22, 0.35); color: #fff; }
+
+@media (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  html.kridangan-custom-cursor,
+  html.kridangan-custom-cursor * { cursor: none !important; }
+}
+
+.kridangan-cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+  transition: opacity 160ms ease;
+  filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.7));
+  will-change: transform;
+}
+
+.kridangan-cursor[data-visible="true"] { opacity: 1; }
+.kridangan-cursor::before,
+.kridangan-cursor::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: #F97316;
+  transform: translate(-50%, -50%);
+}
+.kridangan-cursor::before { width: 24px; height: 1px; }
+.kridangan-cursor::after { width: 1px; height: 24px; }
+.kridangan-cursor > span {
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgba(249, 115, 22, 0.8);
+  transform: rotate(45deg);
+  transition: inset 160ms ease, background-color 160ms ease;
+}
+.kridangan-cursor[data-hover="true"] > span { inset: 4px; background: rgba(249, 115, 22, 0.16); }
+.kridangan-cursor-trail {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #F97316;
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.65);
+  will-change: transform;
+}

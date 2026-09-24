@@ -54,6 +54,14 @@ Previous account's preview crashed on `src/main.tsx` before credits ran out.
 - No registration data is stored in `localStorage`; state remains in-memory until the existing backend submission.
 - QA: frontend production build and backend compilation passed. Testing agent iteration 2 passed **6/6 backend tests** and all desktop/mobile UI flows at **100%**, including three full submissions, rulebook gates, exact fees, UPI/payment review, admin detail visibility, approve/reject, CSV export, legacy records, and responsive layouts. Test-created registrations and screenshots were removed after verification.
 
+## Homepage Announcements & Cursor (2026-09-24, iteration 3)
+- Removed stale `COMING SOON` and `TO BE ANNOUNCED` homepage content.
+- Event briefing now shows: **29–30 October 2026**, detailed timing note **“29–30 October 2026 · Detailed timings will be shared soon”**, published official game formats/Rule Books, and game fees **Free Fire ₹199 · Chess ₹99 · E-Football ₹99**.
+- Rules/formats announcement links directly to the existing games section.
+- Added a site-wide orange crosshair cursor with a subtle six-dot glow trail and interactive hover state, preserving the existing visual language.
+- Cursor enhancement activates only for fine pointers, remains non-blocking, hides on pointer exit, and is disabled for reduced-motion users; touch/mobile behavior remains native.
+- Frontend production build passed. Testing agent iteration 3 verified the reported stale-content bug and cursor behavior at **100%** across desktop/mobile, including no overflow, no blocked interactions, reduced-motion behavior, and existing navigation. Intermittent preview-infrastructure `/cdn-cgi/rum` aborted-request noise did not affect any app flow.
+
 ## Backlog (prioritized)
 - **P1**: Wire up an email provider inside `backend/lib/notifications._deliver` (currently logs only).
 - **P1**: Persistent object storage for screenshots (currently local disk).

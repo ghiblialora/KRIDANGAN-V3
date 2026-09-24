@@ -12,9 +12,9 @@ export const eventConfig = {
     end: "2026-10-30",
   },
   eventDetails: {
-    schedule: "COMING SOON",
-    rules: "COMING SOON",
-    registrationFee: "TO BE ANNOUNCED",
+    schedule: "29–30 October 2026 · Detailed timings will be shared soon",
+    rules: "Official game formats & Rule Books published",
+    registrationFee: "Free Fire ₹199 · Chess ₹99 · E-Football ₹99",
   },
   prizePool: "₹40,000",
   prizeBreakdown: {

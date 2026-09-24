@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
+import { CustomCursor } from "@/components/CustomCursor";
 import Home from "@/pages/Home";
 import Contact from "@/pages/Contact";
 import Register from "@/pages/Register";
@@ -12,6 +13,7 @@ import AdminDashboard from "@/pages/admin/AdminDashboard";
 export default function App(): ReactElement {
   return (
     <>
+      <CustomCursor />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/contact" element={<Contact />} />
