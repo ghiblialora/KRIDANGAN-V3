@@ -30,14 +30,14 @@ Previous account's preview crashed on `src/main.tsx` before credits ran out.
 - Backend: `/api/`, `/api/registration/{config,submit,status}`, `/api/admin/{login,logout,me,stats,registrations,registrations/{id},registrations/{id}/screenshot,registrations/{id}/approve,registrations/{id}/reject,registrations/{id}/note,registrations/export.csv}`.
 - Fixed root-cause bug of previous session: `from __future__ import annotations` combined with a callable-class `RateLimiter` broke FastAPI's dependency resolver (422 on every POST). Wrapped limiters in plain functions and dropped the future-annotations import from routers + security.
 - Admin seed on startup with credentials from `backend/.env`.
-- UPI ID set to `kavyamhatre20viiid@okaxis`; organizer-supplied QR installed at `/assets/payment-qr.png`.
+- Organizer-supplied payment QR installed at `/assets/payment-qr.png`; current UPI ID is `9321222950@kotakbank`.
 - Original release used placeholder fees; these were replaced with organizer-confirmed game fees on 2026-09-24.
 - E2E verified: submit (valid), duplicate UTR 409, invalid mobile 422, admin login/logout, stats, list, detail, approve, re-approve 409, CSV export, public status lookup.
 
-## Payment Configuration Update (2026-09-24)
-- Replaced the placeholder payment QR with the organizer-supplied QR image at `frontend/public/assets/payment-qr.png`.
-- Updated the backend-owned UPI ID to `kavyamhatre20viiid@okaxis`.
-- Verified the live config API, public QR response, and browser payment step; the QR renders at its full 857 × 726 source resolution and the displayed UPI ID matches exactly.
+## Payment Configuration Updates (2026-09-24)
+- Replaced the original placeholder and subsequent Google Pay QR with the latest organizer-supplied Kotak QR at `frontend/public/assets/payment-qr.png`.
+- Current backend-owned UPI ID: `9321222950@kotakbank`.
+- Verified the live config API, public QR response, and browser payment step; the latest QR renders at its full 616 × 700 source resolution and the displayed UPI ID matches exactly.
 
 ## Game Registration Expansion (2026-09-24, iteration 2)
 - Preserved the existing design, registration steps, MongoDB collection, manual UPI flow, admin dashboard, approve/reject actions, registration IDs, and public status lookup.

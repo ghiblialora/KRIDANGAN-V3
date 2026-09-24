@@ -36,7 +36,7 @@ TOTAL_PRIZE_POOL = 40_000
 GAME_PRIZES: dict[str, int] = {"freefire": 20_000, "chess": 10_000, "efootball": 8_000}
 
 PAYMENT: dict[str, str] = {
-    "upiId": "kavyamhatre20viiid@okaxis",
+    "upiId": "9321222950@kotakbank",
     "qrCode": "/assets/payment-qr.png",
 }
 

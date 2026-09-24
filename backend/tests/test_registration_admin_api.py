@@ -188,7 +188,7 @@ def test_registration_config_latest_values() -> None:
     assert by_id["efootball"]["mode"] == "1v1 Competitive Battle"
     assert "eFootball%20Mobile%20Championship" in by_id["efootball"]["rulebook_url"]
 
-    assert cfg["payment"]["upi_id"] == "kavyamhatre20viiid@okaxis"
+    assert cfg["payment"]["upi_id"] == "9321222950@kotakbank"
 
 
 def test_submit_rejects_rulebook_not_accepted() -> None:
