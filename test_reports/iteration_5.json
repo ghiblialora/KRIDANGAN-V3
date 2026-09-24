@@ -1,0 +1,49 @@
+{
+  "summary": "Executed backend + frontend regression for Azure single-container deployment contract on preview URL. SPA/static serving, health behaviors, auth/CORS/lockout checks, upload validations, deployment-file contract checks, production frontend build, and core UI navigation/login/logout were validated.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/admin/registrations/{registration_id}/screenshot",
+        "issue": "Authenticated screenshot response cache-control header observed as 'no-store, no-cache, must-revalidate' instead of expected strict 'private, no-store'.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_azure_deployment_contract.py",
+    "/app/backend/tests/test_admin_auth_rotation.py",
+    "/app/backend/tests/test_registration_admin_api.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/root/.emergent/automation_output/20260924_201752/console_20260924_201752.log"
+  ],
+  "action_items": [
+    "Confirm where Cache-Control is being rewritten for admin screenshot responses (app vs ingress/proxy/CDN) and enforce required 'private, no-store'.",
+    "If strict header contract is required at edge, add/verify response header passthrough policy to preserve private directive.",
+    "Optional test hygiene: provide /app/tmp/pre-rotation-admin-token.txt fixture when validating token-rotation negative-path tests."
+  ],
+  "critical_code_review_comments": [
+    "backend/lib/uploads.py uses a fallback default path when UPLOAD_DIR is unset; if fail-fast env-only policy is mandatory, this should be tightened.",
+    "Server route logic correctly keeps unknown /api/* routes out of SPA fallback and preserves JSON 404 behavior.",
+    "Admin duplicate-warning Mongo queries are correctly bounded with limit(10) in backend/routers/admin.py."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_azure_deployment_contract.py",
+    "/app/backend/tests/test_admin_auth_rotation.py",
+    "/app/test_reports/iteration_5.json"
+  ],
+  "success_rate": {
+    "backend": "97.4% (37/38 passed, 1 skipped)",
+    "frontend": "100% for tested homepage/register/admin login+logout flows"
+  },
+  "seed_data_creation": "Yes. Regression tests created TEST_* registrations via /api/registration/submit during execution.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Current blocker is only screenshot cache-control contract mismatch on authenticated image endpoint. All other requested Azure/container/static/health/auth/UI checks passed in this run. Re-run /app/backend/tests/test_azure_deployment_contract.py::test_authenticated_screenshot_endpoint_is_private_no_store after header-policy fix.",
+  "rca of the issue": "Reproduction: login as admin, list registrations, open /api/admin/registrations/{id}/screenshot, inspect response headers. Observed cache-control includes no-store/no-cache/must-revalidate but missing explicit private token expected by requirement. Code in backend/routers/admin.py sets 'private, no-store', so likely override/normalization occurs in middleware/proxy/CDN layer. Mitigation: enforce final edge response header policy or ensure upstream header is preserved exactly."
+}

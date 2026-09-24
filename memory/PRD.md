@@ -71,14 +71,28 @@ Previous account's preview crashed on `src/main.tsx` before credits ran out.
 - Added `/app/auth_testing.md` and auth regression coverage. Testing agent verified new credentials, old-credential rejection, pre-rotation JWT rejection, Mongo state, safe invalid-login errors, dashboard access, and logout. Post-fix suite: **7/7 passed**; test-only lockout records and synthetic token were removed.
 
 ## Azure Hosting Direction
-- Recommended production target: **Azure App Service / Web App for Containers**, after replacing local screenshot storage with Azure Blob Storage and using an external MongoDB service (MongoDB Atlas or Azure Cosmos DB for MongoDB).
+- Approved production target: **Azure App Service / Web App for Containers** with Azure Cosmos DB API for MongoDB and an Azure Files private mount for screenshots.
 - Fastest lift-and-shift alternative: Azure VM/VPS with Docker or Nginx + process supervision, but the organizer owns OS patching, TLS, backups, monitoring, scaling, and incident recovery.
-- App Service is preferred for this event system because managed HTTPS, restarts, health checks, scaling, and environment configuration reduce operational risk. The existing local-disk upload path is the primary deployment blocker.
+- App Service is preferred for this event system because managed HTTPS, restarts, health checks, scaling, and environment configuration reduce operational risk.
+
+## Azure Single-Container Readiness (2026-09-24, iteration 5)
+- Added a multi-stage root `Dockerfile`: Node 22/Yarn builds the existing Vite frontend; Python 3.11 runs FastAPI as a non-root user and serves the built SPA from the same domain.
+- FastAPI now supports direct SPA refreshes for `/`, `/register`, `/registration-status`, `/admin/login`, and `/admin`, while unknown `/api/*` paths remain JSON 404 responses.
+- Added `/api/health`, which returns 200 only when MongoDB responds and the configured private screenshot directory is writable; storage failures return 503. Lifespan shutdown now cancels/awaits the background index task before closing MongoDB.
+- Production screenshots remain outside frontend static files and continue through the authenticated admin endpoint. Response policy is hardened with private/no-store/no-cache directives, `Vary: Cookie`, and no public screenshot URLs.
+- Added `.dockerignore` to prevent `.env` secrets, local uploads, tests, caches, and development artifacts from entering the image.
+- Added Azure configuration assets: `AZURE_DEPLOYMENT.md`, `azure.env.example`, `compose.azure-local.yml`, and GitHub OIDC workflow `.github/workflows/azure-container-deploy.yml`.
+- GitHub workflow builds an immutable commit-SHA image, pushes it to private ACR, and deploys that exact image to the Azure Web App; runtime database/admin/JWT secrets stay in Azure App Settings/Key Vault.
+- Azure Files target mount is `/mnt/private-uploads`; `UPLOAD_DIR` keeps the existing file validation and protected screenshot route unchanged.
+- Cosmos-friendly admin duplicate-warning queries are bounded with `.limit(10)`.
+- Verification: frontend production build and backend compilation passed; SPA/static/API-isolation/health contracts passed; deployment agent returned **PASS / no blockers**; testing agent verified UI, admin/auth, upload security, Docker/workflow/docs contracts and reported one preview-edge cache-header normalization. The endpoint was hardened and the focused retest passed. Final Azure contract suite: **25/25 passed**. Test-created registrations, screenshots, and lockout fixtures were removed.
+- Preview limitation: Docker CLI is unavailable in the workspace, so the actual image has not been executed here. The first real image build will run in GitHub/ACR after Azure OIDC variables and resources are configured.
 
 ## Backlog (prioritized)
-- **P0**: Before Azure App Service deployment, migrate payment screenshots to Azure Blob Storage and configure production MongoDB + explicit production CORS/domain environment values.
+- **P0**: Create the approved Azure resources, configure Key Vault/App Settings and the Azure Files path mapping, then push via **Save to GitHub** so the first ACR image can build and deploy.
+- **P0**: Run first-deployment persistence verification: submit a screenshot, restart the Web App, and confirm protected admin retrieval still works.
 - **P1**: Wire up an email provider inside `backend/lib/notifications._deliver` (currently logs only).
-- **P1**: Persistent object storage for screenshots (currently local disk).
+- **P1**: Add custom domain and managed HTTPS certificate after the default `azurewebsites.net` hostname passes health and full-flow checks.
 - **P2**: Rejection reason dropdown (Invalid UTR / Amount mismatch / Screenshot unclear / Not found / Duplicate / Other) — backend accepts free-form reason today.
 - **P2**: WhatsApp/Telegram broadcast on VERIFIED.
 - **P2**: Rate-limit tuning per campus-network reality.

@@ -183,7 +183,7 @@ async def registration_detail(registration_id: str, admin: str = AdminUser) -> R
     doc = await _get_or_404(registration_id)
     warnings: list[DuplicateWarning] = []
     same_utr = [d["registration_id"] async for d in db.registrations.find(
-        {"utr_number": doc["utr_number"], "registration_id": {"$ne": doc["registration_id"]}}, {"_id": 0, "registration_id": 1})]
+        {"utr_number": doc["utr_number"], "registration_id": {"$ne": doc["registration_id"]}}, {"_id": 0, "registration_id": 1}).limit(10)]
     if same_utr:
         warnings.append(DuplicateWarning(kind="utr", message="WARNING: This UTR has already been used.", registration_ids=same_utr))
     emails = doc.get("participant_emails", [doc["email"]])
@@ -193,7 +193,7 @@ async def registration_detail(registration_id: str, admin: str = AdminUser) -> R
             {"email": {"$in": emails}}, {"mobile": {"$in": mobiles}},
             {"participant_emails": {"$in": emails}}, {"participant_mobiles": {"$in": mobiles}},
         ]},
-        {"_id": 0, "registration_id": 1})]
+        {"_id": 0, "registration_id": 1}).limit(10)]
     if same_person:
         warnings.append(DuplicateWarning(kind="participant", message="This participant has another registration for the same game.", registration_ids=same_person))
     return RegistrationDetail(registration=_to_model(doc), warnings=warnings)
@@ -203,7 +203,16 @@ async def registration_detail(registration_id: str, admin: str = AdminUser) -> R
 async def registration_screenshot(registration_id: str, admin: str = AdminUser) -> FileResponse:
     doc = await _get_or_404(registration_id)
     path = screenshot_path(doc["payment_screenshot_file"])
-    return FileResponse(path, headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+    return FileResponse(
+        path,
+        headers={
+            "Cache-Control": "private, no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+            "Vary": "Cookie",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 async def _set_status(doc: dict, new_status: str, admin: str, note: str | None) -> Registration:
