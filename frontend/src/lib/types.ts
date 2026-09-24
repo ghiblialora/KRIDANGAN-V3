@@ -8,6 +8,9 @@ export interface GameConfig {
   title: string;
   fee: number | null;
   fee_display: string;
+  registration_type: string;
+  mode: string;
+  rulebook_url: string;
 }
 
 export interface PaymentConfig {
@@ -67,6 +70,11 @@ export interface Registration {
   student_id: string;
   game: GameId;
   game_title: string;
+  registration_type: string;
+  mode: string;
+  rulebook_url: string;
+  rulebook_accepted: boolean;
+  game_details: Record<string, unknown>;
   registration_fee: number | null;
   fee_display: string;
   utr_number: string;

@@ -24,6 +24,8 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("utr_number", ASCENDING)], name="utr_number"),
         IndexModel([("email", ASCENDING), ("game", ASCENDING)], name="email_game"),
         IndexModel([("mobile", ASCENDING), ("game", ASCENDING)], name="mobile_game"),
+        IndexModel([("participant_emails", ASCENDING), ("game", ASCENDING)], name="participant_email_game"),
+        IndexModel([("participant_mobiles", ASCENDING), ("game", ASCENDING)], name="participant_mobile_game"),
         IndexModel([("registration_status", ASCENDING), ("game", ASCENDING), ("created_at", DESCENDING)], name="status_game_created"),
         IndexModel([("created_at", DESCENDING)], name="created_desc"),
     ],

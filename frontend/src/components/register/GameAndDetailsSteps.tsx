@@ -1,7 +1,10 @@
 import { useState, type FormEvent, type ReactElement } from "react";
 import { ArrowLeft, ArrowRight, CircleDot, Crosshair, Crown } from "lucide-react";
+import { FreeFireDetailsFields } from "@/components/register/FreeFireDetailsFields";
+import { IndividualDetailsFields } from "@/components/register/IndividualDetailsFields";
 import { Field, ghostButtonClass, inputClass, primaryButtonClass } from "@/components/register/primitives";
-import { validateDetails, type Details, type DetailsErrors } from "@/components/register/validation";
+import { RulebookAgreement } from "@/components/register/RulebookAgreement";
+import { validateDetails, type ChessDetails, type Details, type DetailsErrors, type EFootballDetails, type FreeFireDetails } from "@/components/register/validation";
 import type { GameConfig, GameId } from "@/lib/types";
 
 const GAME_ICONS = { freefire: Crosshair, chess: Crown, efootball: CircleDot } as const;
@@ -45,6 +48,7 @@ export function GameStep({ games, selected, onSelect }: GameStepProps): ReactEle
               <div>
                 <p className="font-heading text-xl font-semibold uppercase">{game.title}</p>
                 <p className="mt-1 text-xs leading-5 text-[#777]">{GAME_TAGLINE[game.id]}</p>
+                <p data-testid={`game-mode-${game.id}`} className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[#A1A1A1]">{game.mode}</p>
                 <p className="mt-4 flex items-baseline gap-2 border-t border-white/10 pt-3">
                   <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#666]">Fee</span>
                   <span data-testid={`game-fee-${game.id}`} className="font-heading text-lg font-bold text-[#F5F5F5]">{game.fee_display}</span>
@@ -75,40 +79,37 @@ export function DetailsStep({ game, details, onChange, onBack, onNext }: Details
 
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    const next = validateDetails(details);
+    const next = validateDetails(details, game.id);
     setErrors(next);
     if (Object.keys(next).length === 0) onNext();
   };
 
-  const bind = (key: keyof Details) => ({
-    id: key,
-    name: key,
-    value: details[key],
-    "aria-invalid": Boolean(errors[key]),
-    onChange: (e: { target: { value: string } }) => {
-      onChange({ ...details, [key]: e.target.value });
-      if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
-    },
-    className: inputClass,
-  });
+  const updateCommon = (key: "college" | "student_id", value: string): void => {
+    onChange({ ...details, [key]: value });
+    if (errors[key]) setErrors((previous) => { const next = { ...previous }; delete next[key]; return next; });
+  };
 
   return (
     <form data-testid="register-details-step" onSubmit={submit} noValidate>
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#F97316]">Step 2 / Your details</p>
       <h2 className="mt-3 font-heading text-3xl font-bold uppercase tracking-tight sm:text-4xl">Registration form<span className="text-[#F97316]">.</span></h2>
-      <div className="mt-8 grid gap-6 sm:grid-cols-2">
-        <Field id="full_name" label="Full name" error={errors.full_name}><input {...bind("full_name")} data-testid="input-full-name" autoComplete="name" placeholder="Your full name" /></Field>
-        <Field id="email" label="Email address" error={errors.email}><input {...bind("email")} data-testid="input-email" type="email" autoComplete="email" inputMode="email" placeholder="you@example.com" /></Field>
-        <Field id="mobile" label="Mobile number" error={errors.mobile}><input {...bind("mobile")} data-testid="input-mobile" type="tel" autoComplete="tel" inputMode="numeric" placeholder="10-digit mobile number" /></Field>
-        <Field id="college" label="College / Institution" error={errors.college}><input {...bind("college")} data-testid="input-college" autoComplete="organization" placeholder="Your college" /></Field>
-        <Field id="student_id" label="Student ID / College ID" error={errors.student_id}><input {...bind("student_id")} data-testid="input-student-id" placeholder="ID number" /></Field>
-        <Field id="game" label="Selected game" hint="Locked from step 1 — go back to change it.">
-          <div data-testid="selected-game-readonly" className="flex min-h-12 items-center justify-between border border-[#F97316]/30 bg-[#F97316]/5 px-4 text-sm">
-            <span className="font-heading font-semibold uppercase">{game.title}</span>
-            <span className="font-mono text-xs text-[#F97316]">{game.fee_display}</span>
-          </div>
-        </Field>
+      <div data-testid="selected-game-readonly" className="mt-8 grid gap-px border border-white/10 bg-white/10 sm:grid-cols-3">
+        <div className="bg-[#0A0A0A] p-4"><p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#666]">Game</p><p className="mt-2 font-heading text-sm font-semibold uppercase">{game.title}</p></div>
+        <div className="bg-[#0A0A0A] p-4"><p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#666]">Format</p><p data-testid="selected-registration-type" className="mt-2 text-sm text-[#F5F5F5]">{game.registration_type}</p></div>
+        <div className="bg-[#0A0A0A] p-4"><p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#666]">Mode · Fee</p><p data-testid="selected-game-mode" className="mt-2 text-sm text-[#F5F5F5]">{game.mode} · <span className="text-[#F97316]">{game.fee_display}</span></p></div>
       </div>
+      <div className="mt-8">
+        {game.id === "freefire" ? (
+          <FreeFireDetailsFields value={details.game_details as FreeFireDetails} errors={errors} onChange={(gameDetails) => onChange({ ...details, game_details: gameDetails })} />
+        ) : (
+          <IndividualDetailsFields game={game.id} value={details.game_details as ChessDetails | EFootballDetails} errors={errors} onChange={(gameDetails) => onChange({ ...details, game_details: gameDetails })} />
+        )}
+      </div>
+      <div className="mt-8 grid gap-6 sm:grid-cols-2">
+        <Field id="college" label="College / Institution" error={errors.college}><input id="college" data-testid="input-college" value={details.college} onChange={(e) => updateCommon("college", e.target.value)} className={inputClass} autoComplete="organization" placeholder="Your college" /></Field>
+        <Field id="student_id" label="Student ID / College ID" error={errors.student_id}><input id="student_id" data-testid="input-student-id" value={details.student_id} onChange={(e) => updateCommon("student_id", e.target.value)} className={inputClass} placeholder="ID number" /></Field>
+      </div>
+      <div className="mt-8"><RulebookAgreement game={game} accepted={details.rulebook_accepted} error={errors.rulebook_accepted} onChange={(accepted) => onChange({ ...details, rulebook_accepted: accepted })} /></div>
       <div className="mt-10 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
         <button type="button" onClick={onBack} data-testid="details-back-button" className={ghostButtonClass}><ArrowLeft className="size-4" aria-hidden="true" /> Change game</button>
         <button type="submit" data-testid="details-continue-button" className={primaryButtonClass}>Continue to payment <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" /></button>

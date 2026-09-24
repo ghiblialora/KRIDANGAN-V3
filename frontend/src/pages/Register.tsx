@@ -6,7 +6,7 @@ import HalloweenAtmosphere from "@/components/HalloweenAtmosphere";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/SiteHeader";
 import { DetailsStep, GameStep } from "@/components/register/GameAndDetailsSteps";
-import { emptyDetails, type Details } from "@/components/register/validation";
+import { createEmptyDetails, primaryContact, type Details } from "@/components/register/validation";
 import { PaymentStep } from "@/components/register/PaymentStep";
 import { ReviewStep, SuccessScreen } from "@/components/register/ReviewAndSuccess";
 import { StepIndicator } from "@/components/register/primitives";
@@ -22,7 +22,7 @@ export default function Register(): ReactElement {
 
   const [step, setStep] = useState<number>(initialGame ? 2 : 1);
   const [game, setGame] = useState<GameId | null>(initialGame);
-  const [details, setDetails] = useState<Details>(emptyDetails);
+  const [details, setDetails] = useState<Details>(() => createEmptyDetails(initialGame ?? "freefire"));
   const [utr, setUtr] = useState("");
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [result, setResult] = useState<RegistrationSubmitted | null>(null);
@@ -35,13 +35,16 @@ export default function Register(): ReactElement {
   const submit = useMutation({
     mutationFn: async (): Promise<RegistrationSubmitted> => {
       if (!game || !screenshot) throw new Error("Missing game or screenshot");
+      const contact = primaryContact(details, game);
       const form = new FormData();
-      form.append("full_name", details.full_name.trim());
-      form.append("email", details.email.trim());
-      form.append("mobile", details.mobile.trim());
+      form.append("full_name", contact.full_name.trim());
+      form.append("email", contact.email.trim());
+      form.append("mobile", contact.mobile.trim());
       form.append("college", details.college.trim());
       form.append("student_id", details.student_id.trim());
       form.append("game", game);
+      form.append("game_details_json", JSON.stringify(details.game_details));
+      form.append("rulebook_accepted", String(details.rulebook_accepted));
       form.append("utr_number", utr.replace(/\s/g, "").toUpperCase());
       form.append("screenshot", screenshot);
       return apiPostForm<RegistrationSubmitted>("/registration/submit", form);
@@ -71,7 +74,7 @@ export default function Register(): ReactElement {
             {config.isError && <p data-testid="register-config-error" role="alert" className="text-sm text-[#FCA5A5]">Could not load registration details. Please refresh the page.</p>}
             {config.data && result && <SuccessScreen result={result} />}
             {config.data && !result && step === 1 && (
-              <GameStep games={config.data.games} selected={game} onSelect={(id) => { setGame(id); setStep(2); }} />
+              <GameStep games={config.data.games} selected={game} onSelect={(id) => { setGame(id); setDetails(createEmptyDetails(id)); setStep(2); }} />
             )}
             {config.data && !result && step === 2 && selectedGame && (
               <DetailsStep game={selectedGame} details={details} onChange={setDetails} onBack={() => setStep(1)} onNext={() => setStep(3)} />

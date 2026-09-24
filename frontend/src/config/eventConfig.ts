@@ -16,7 +16,12 @@ export const eventConfig = {
     rules: "COMING SOON",
     registrationFee: "TO BE ANNOUNCED",
   },
-  prizePool: "₹XX,XXX",
+  prizePool: "₹40,000",
+  prizeBreakdown: {
+    freefire: "₹20,000",
+    chess: "₹10,000",
+    efootball: "₹8,000",
+  },
   logoPaths: {
     kridanganOnDark: "https://customer-assets-v7afamib.emergentagent.net/job_kridangan-esports/artifacts/d2xzyx2u_IMG-20260910-WA0027.jpg-removebg-preview.png",
     kridanganOnLight: "https://customer-assets-v7afamib.emergentagent.net/job_kridangan-esports/artifacts/kyrknxdl_IMG-20260910-WA0026.jpg.jpeg",

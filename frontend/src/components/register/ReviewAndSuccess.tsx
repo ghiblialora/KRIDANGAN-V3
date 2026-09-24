@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Check, Copy, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { ghostButtonClass, primaryButtonClass, StatusPill, SummaryRow } from "@/components/register/primitives";
-import type { Details } from "@/components/register/validation";
+import { detailSummary, primaryContact, type Details } from "@/components/register/validation";
 import { copyText } from "@/components/register/validation";
 import type { GameConfig, RegistrationSubmitted } from "@/lib/types";
 
@@ -19,18 +19,23 @@ interface ReviewStepProps {
 }
 
 export function ReviewStep({ game, details, utr, screenshot, submitting, error, onBack, onSubmit }: ReviewStepProps): ReactElement {
+  const contact = primaryContact(details, game.id);
   return (
     <div data-testid="register-review-step">
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#F97316]">Step 4 / Verification</p>
       <h2 className="mt-3 font-heading text-3xl font-bold uppercase tracking-tight sm:text-4xl">Registration summary<span className="text-[#F97316]">.</span></h2>
       <p className="mt-3 text-sm text-[#888]">Check everything once. After submission your payment proof goes to the KRIDANGAN team for manual verification.</p>
       <dl data-testid="registration-summary" className="mt-8 divide-y divide-white/10 border-y border-white/10">
-        <SummaryRow label="Name" value={details.full_name} testId="summary-name" />
-        <SummaryRow label="Email" value={details.email} testId="summary-email" />
-        <SummaryRow label="Mobile" value={details.mobile} testId="summary-mobile" />
+        <SummaryRow label="Primary contact" value={contact.full_name} testId="summary-name" />
+        <SummaryRow label="Email" value={contact.email} testId="summary-email" />
+        <SummaryRow label="Mobile" value={contact.mobile} testId="summary-mobile" />
         <SummaryRow label="College" value={details.college} testId="summary-college" />
         <SummaryRow label="Student ID" value={details.student_id} testId="summary-student-id" />
         <SummaryRow label="Game" value={game.title} testId="summary-game" />
+        <SummaryRow label="Registration" value={game.registration_type} testId="summary-registration-type" />
+        <SummaryRow label="Mode" value={game.mode} testId="summary-mode" />
+        {detailSummary(details, game.id).map((row) => <SummaryRow key={row.testId} {...row} />)}
+        <SummaryRow label="Rule Book" value="Read and accepted" testId="summary-rulebook-accepted" />
         <SummaryRow label="Registration fee" value={<span className="text-[#F97316]">{game.fee_display}</span>} testId="summary-fee" />
         <SummaryRow label="UTR" value={<span className="font-mono">{utr.replace(/\s/g, "").toUpperCase()}</span>} testId="summary-utr" />
         <SummaryRow label="Screenshot" value={screenshot?.name ?? "—"} testId="summary-screenshot" />

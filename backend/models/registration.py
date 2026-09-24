@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 from lib.event_config import GAMES
 
@@ -15,6 +15,106 @@ Status = Literal["PENDING", "VERIFIED", "REJECTED"]
 
 MOBILE_RE = re.compile(r"^[6-9]\d{9}$")
 UTR_RE = re.compile(r"^[A-Za-z0-9]{8,30}$")
+PLAYER_ID_RE = re.compile(r"^[A-Za-z0-9_.\- ]{2,40}$")
+
+
+def normalize_mobile(value: str) -> str:
+    digits = re.sub(r"[\s\-]", "", str(value))
+    if digits.startswith("+91"):
+        digits = digits[3:]
+    elif digits.startswith("91") and len(digits) == 12:
+        digits = digits[2:]
+    elif digits.startswith("0") and len(digits) == 11:
+        digits = digits[1:]
+    if not MOBILE_RE.match(digits):
+        raise ValueError("Enter a valid 10-digit Indian mobile number")
+    return digits
+
+
+class PlayerContact(BaseModel):
+    uid: str = Field(min_length=2, max_length=40)
+    ign: str = Field(min_length=2, max_length=40)
+    phone: str
+    email: EmailStr
+
+    @field_validator("uid", "ign", mode="before")
+    @classmethod
+    def _player_id(cls, value: str) -> str:
+        cleaned = str(value).strip()
+        if not PLAYER_ID_RE.fullmatch(cleaned):
+            raise ValueError("Use 2–40 letters, numbers, spaces, dots, hyphens or underscores")
+        return cleaned
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def _phone(cls, value: str) -> str:
+        return normalize_mobile(value)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def _email(cls, value: str) -> str:
+        return str(value).strip().lower()
+
+
+class TeamLeader(PlayerContact):
+    name: str = Field(min_length=2, max_length=100)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def _name(cls, value: str) -> str:
+        return str(value).strip()
+
+
+class FreeFireDetails(BaseModel):
+    team_leader: TeamLeader
+    players: list[PlayerContact] = Field(min_length=5, max_length=5)
+
+
+class ChessDetails(BaseModel):
+    player_name: str = Field(min_length=2, max_length=100)
+    chess_username: str = Field(min_length=2, max_length=60)
+    phone: str
+    email: EmailStr
+
+    @field_validator("player_name", "chess_username", mode="before")
+    @classmethod
+    def _strip(cls, value: str) -> str:
+        return str(value).strip()
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def _phone(cls, value: str) -> str:
+        return normalize_mobile(value)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def _email(cls, value: str) -> str:
+        return str(value).strip().lower()
+
+
+class EFootballDetails(BaseModel):
+    player_name: str = Field(min_length=2, max_length=100)
+    efootball_id: str = Field(min_length=2, max_length=60)
+    phone: str
+    email: EmailStr
+
+    @field_validator("player_name", "efootball_id", mode="before")
+    @classmethod
+    def _strip(cls, value: str) -> str:
+        return str(value).strip()
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def _phone(cls, value: str) -> str:
+        return normalize_mobile(value)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def _email(cls, value: str) -> str:
+        return str(value).strip().lower()
+
+
+GameDetails = FreeFireDetails | ChessDetails | EFootballDetails
 
 
 class RegistrationInput(BaseModel):
@@ -26,6 +126,8 @@ class RegistrationInput(BaseModel):
     college: str = Field(min_length=2, max_length=150)
     student_id: str = Field(min_length=2, max_length=60)
     game: GameId
+    game_details: GameDetails
+    rulebook_accepted: bool
     utr_number: str
 
     @field_validator("full_name", "college", "student_id", mode="before")
@@ -41,16 +143,7 @@ class RegistrationInput(BaseModel):
     @field_validator("mobile", mode="before")
     @classmethod
     def _mobile(cls, value: str) -> str:
-        digits = re.sub(r"[\s\-]", "", str(value))
-        if digits.startswith("+91"):
-            digits = digits[3:]
-        elif digits.startswith("91") and len(digits) == 12:
-            digits = digits[2:]
-        elif digits.startswith("0") and len(digits) == 11:
-            digits = digits[1:]
-        if not MOBILE_RE.match(digits):
-            raise ValueError("Enter a valid 10-digit Indian mobile number")
-        return digits
+        return normalize_mobile(value)
 
     @field_validator("utr_number", mode="before")
     @classmethod
@@ -66,6 +159,30 @@ class RegistrationInput(BaseModel):
         if value not in GAMES:
             raise ValueError("Unknown game")
         return value
+
+    @model_validator(mode="after")
+    def _validate_game_details(self) -> "RegistrationInput":
+        expected = {"freefire": FreeFireDetails, "chess": ChessDetails, "efootball": EFootballDetails}[self.game]
+        if not isinstance(self.game_details, expected):
+            raise ValueError(f"Registration details do not match {GAMES[self.game]}")
+        if not self.rulebook_accepted:
+            raise ValueError("You must read and accept the Rule Book before continuing")
+        primary_name, primary_email, primary_mobile = self.primary_contact()
+        if self.full_name.casefold() != primary_name.casefold() or self.email != primary_email or self.mobile != primary_mobile:
+            raise ValueError("Primary contact must match the submitted player details")
+        return self
+
+    def primary_contact(self) -> tuple[str, str, str]:
+        if isinstance(self.game_details, FreeFireDetails):
+            leader = self.game_details.team_leader
+            return leader.name, str(leader.email), leader.phone
+        return self.game_details.player_name, str(self.game_details.email), self.game_details.phone
+
+    def participant_contacts(self) -> tuple[list[str], list[str]]:
+        if isinstance(self.game_details, FreeFireDetails):
+            contacts = [self.game_details.team_leader, *self.game_details.players]
+            return [str(p.email) for p in contacts], [p.phone for p in contacts]
+        return [str(self.game_details.email)], [self.game_details.phone]
 
 
 class RegistrationSubmitted(BaseModel):
@@ -99,6 +216,9 @@ class GameConfig(BaseModel):
     title: str
     fee: int | None
     fee_display: str
+    registration_type: str
+    mode: str
+    rulebook_url: str
 
 
 class PaymentConfig(BaseModel):
@@ -135,6 +255,11 @@ class Registration(BaseModel):
     student_id: str
     game: GameId
     game_title: str
+    registration_type: str
+    mode: str
+    rulebook_url: str
+    rulebook_accepted: bool = False
+    game_details: dict = Field(default_factory=dict)
     registration_fee: int | None
     fee_display: str
     utr_number: str

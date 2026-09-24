@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from lib import notifications
 from lib.db import db
-from lib.event_config import GAMES, format_fee, game_title
+from lib.event_config import GAMES, format_fee, game_title, metadata_for
 from lib.security import (
     AdminUser,
     clear_session_cookie,
@@ -39,9 +39,18 @@ _PROJECTION = {"_id": 0}
 
 
 def _to_model(doc: dict) -> Registration:
+    metadata = metadata_for(doc["game"])
     return Registration(
-        **{k: v for k, v in doc.items() if k not in {"payment_screenshot_file"}},
+        **{k: v for k, v in doc.items() if k not in {
+            "payment_screenshot_file", "participant_emails", "participant_mobiles", "registration_type",
+            "mode", "rulebook_url", "rulebook_accepted", "game_details",
+        }},
         game_title=game_title(doc["game"]),
+        registration_type=doc.get("registration_type", metadata["registrationType"]),
+        mode=doc.get("mode", metadata["mode"]),
+        rulebook_url=doc.get("rulebook_url", metadata["rulebookUrl"]),
+        rulebook_accepted=doc.get("rulebook_accepted", False),
+        game_details=doc.get("game_details", {}),
         fee_display=format_fee(doc.get("registration_fee")),
         payment_screenshot_url=f"/api/admin/registrations/{doc['registration_id']}/screenshot",
     )
@@ -106,7 +115,12 @@ def _build_filter(status_filter: str | None, game: str | None, q: str | None) ->
         query["game"] = game
     if q and q.strip():
         pattern = re.compile(re.escape(q.strip()), re.IGNORECASE)
-        query["$or"] = [{f: pattern} for f in ("registration_id", "full_name", "email", "mobile", "utr_number", "college")]
+        query["$or"] = [{f: pattern} for f in (
+            "registration_id", "full_name", "email", "mobile", "utr_number", "college",
+            "game_details.team_leader.uid", "game_details.team_leader.ign",
+            "game_details.players.uid", "game_details.players.ign", "game_details.players.email", "game_details.players.phone",
+            "game_details.chess_username", "game_details.efootball_id",
+        )]
     return query
 
 
@@ -136,12 +150,23 @@ async def export_csv(
     query = _build_filter(status_filter, game, q)
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["Registration ID", "Name", "Email", "Mobile", "College", "Student ID", "Game", "Amount", "UTR",
-                     "Payment Status", "Registration Status", "Created At", "Verified At", "Verified By", "Admin Note"])
+    participant_columns = [f"Player {i} {field}" for i in range(1, 6) for field in ("UID", "IGN", "Phone", "Email")]
+    writer.writerow(["Registration ID", "Name", "Email", "Mobile", "College", "Student ID", "Game", "Registration Type", "Mode",
+                     "Amount", "Rulebook Accepted", "Rulebook URL", "Team Leader UID", "Team Leader IGN", *participant_columns,
+                     "Chess.com Username/ID", "E-Football ID/Name", "UTR", "Payment Status", "Registration Status", "Created At",
+                     "Verified At", "Verified By", "Admin Note"])
     async for d in db.registrations.find(query, _PROJECTION).sort("created_at", -1):
+        details = d.get("game_details", {})
+        leader = details.get("team_leader", {})
+        players = details.get("players", [])
+        player_values = [players[i].get(field, "") if i < len(players) else "" for i in range(5) for field in ("uid", "ign", "phone", "email")]
+        metadata = metadata_for(d["game"])
         writer.writerow([
             d["registration_id"], d["full_name"], d["email"], d["mobile"], d["college"], d["student_id"], game_title(d["game"]),
-            d.get("registration_fee") if d.get("registration_fee") is not None else "", d["utr_number"], d["payment_status"], d["registration_status"],
+            d.get("registration_type", metadata["registrationType"]), d.get("mode", metadata["mode"]),
+            d.get("registration_fee") if d.get("registration_fee") is not None else "", "Yes" if d.get("rulebook_accepted") else "No",
+            d.get("rulebook_url", metadata["rulebookUrl"]), leader.get("uid", ""), leader.get("ign", ""), *player_values,
+            details.get("chess_username", ""), details.get("efootball_id", ""), d["utr_number"], d["payment_status"], d["registration_status"],
             d["created_at"].isoformat(), d["verified_at"].isoformat() if d.get("verified_at") else "", d.get("verified_by") or "", d.get("admin_note") or "",
         ])
     filename = f"kridangan-registrations-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}.csv"
@@ -156,8 +181,13 @@ async def registration_detail(registration_id: str, admin: str = AdminUser) -> R
         {"utr_number": doc["utr_number"], "registration_id": {"$ne": doc["registration_id"]}}, {"_id": 0, "registration_id": 1})]
     if same_utr:
         warnings.append(DuplicateWarning(kind="utr", message="WARNING: This UTR has already been used.", registration_ids=same_utr))
+    emails = doc.get("participant_emails", [doc["email"]])
+    mobiles = doc.get("participant_mobiles", [doc["mobile"]])
     same_person = [d["registration_id"] async for d in db.registrations.find(
-        {"game": doc["game"], "registration_id": {"$ne": doc["registration_id"]}, "$or": [{"email": doc["email"]}, {"mobile": doc["mobile"]}]},
+        {"game": doc["game"], "registration_id": {"$ne": doc["registration_id"]}, "$or": [
+            {"email": {"$in": emails}}, {"mobile": {"$in": mobiles}},
+            {"participant_emails": {"$in": emails}}, {"participant_mobiles": {"$in": mobiles}},
+        ]},
         {"_id": 0, "registration_id": 1})]
     if same_person:
         warnings.append(DuplicateWarning(kind="participant", message="This participant has another registration for the same game.", registration_ids=same_person))

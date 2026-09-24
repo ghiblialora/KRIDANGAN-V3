@@ -2,6 +2,7 @@ import { useState, type ReactElement } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, ExternalLink, Loader2, Maximize2, X } from "lucide-react";
 import { toast } from "sonner";
+import { GameRegistrationDetails } from "@/components/admin/GameRegistrationDetails";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { StatusPill, SummaryRow, ghostButtonClass, inputClass } from "@/components/register/primitives";
 import { apiGet, apiPatch, apiPost, errorMessage } from "@/lib/api";
@@ -103,6 +104,8 @@ export default function RegistrationDetailDialog({ registrationId, onClose }: Pr
                 <SummaryRow label="Submitted" value={formatDate(reg.created_at)} testId="detail-submitted" />
                 {reg.verified_at && <SummaryRow label="Verified" value={`${formatDate(reg.verified_at)} · ${reg.verified_by ?? ""}`} testId="detail-verified" />}
               </dl>
+
+              <GameRegistrationDetails registration={reg} />
 
               <div data-testid="detail-admin-note">
                 <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#A1A1A1]">Internal admin note</p>
