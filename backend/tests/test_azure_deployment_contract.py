@@ -262,8 +262,9 @@ def test_admin_duplicate_warning_queries_are_bounded() -> None:
 def test_dockerfile_matches_single_container_azure_contract() -> None:
     content = Path("/app/Dockerfile").read_text(encoding="utf-8")
     assert "FROM node:" in content and "AS frontend-build" in content
-    assert "yarn install --frozen-lockfile" in content
-    assert "RUN yarn build" in content
+    assert "COPY frontend/package.json frontend/package-lock.json" in content
+    assert "RUN npm ci" in content
+    assert "RUN npm run build" in content
     assert "FROM python:3.11" in content
     assert "COPY --from=frontend-build /build/frontend/dist /app/frontend/dist" in content
     assert "USER appuser" in content

@@ -1,0 +1,31 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+
+  app:
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - "8000:8000"
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: kridangan
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      CORS_ORIGINS: http://localhost:8000
+      UPLOAD_DIR: /mnt/private-uploads
+      APP_TZ: Asia/Kolkata
+      PORT: "8000"
+    volumes:
+      - payment-screenshots:/mnt/private-uploads
+
+volumes:
+  mongo-data:
+  payment-screenshots:
